@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     ax.plot(vertices_x_coord, vertices_y_coord, 'o', color='k', markersize=2)
     
-    for i in range(len()):
+    #for i in range(len()):
 
 
     plt.show()
