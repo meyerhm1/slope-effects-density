@@ -20,7 +20,7 @@ elif os.name == 'nt':
 
 def check_point_polygon(x, y, poly):
     """
-    This function, which is the most important one, came from a 
+    This function, which is a very important one, came from a 
     solution online. I simply copy pasted it.
 
     It checks whether the supplied coordinates of a point are within the area
@@ -45,8 +45,47 @@ def check_point_polygon(x, y, poly):
 
     return inside
 
+def get_pixel_intersect_poly(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
+
+    # find number of bounding polygon points inside pixel
+    # if there are none:
+    # then find the closest two points on either side of the pixel
+    # else if there are some points inside the pixel: 
+    # then those are to be taken into account for finding the intersecting shape
+    # again you need to find the two closest points on the bounding polygon 
+    # that are closest to an edge
+
+    # this function does not check if the supplied bounding polygon is the inner one
+    # or the outer one. The preceding code must make sure the correct polygon is given.
+
+    polygon_inside_idx_x = np.where((polygon_x > pix_x_cen - 500) & (polygon_x < pix_x_cen + 500))[0]
+    polygon_inside_idx_y = np.where((polygon_y > pix_y_cen - 500) & (polygon_y < pix_y_cen + 500))[0]
+
+    polygon_inside_idx = np.intersect1d(polygon_inside_idx_x, polygon_inside_idx_y)
+
+    if polygon_inside_idx.size:
+        # ie. there are bounding polygon vertices inside the pixel
+        # this can happen for all cases
+
+    else:
+        # check that there are no bounding polygon vertices on the pixel edge
+        # this can only occur for the middle 3 cases with non-zero intersecting area
+        if polygon_edge_idx.size:
+            #ie. there are bounding polygon vertices on the pixel edge
+
+        else:
+            # find the two closest points on either side
+
+    else:
+        # this is the case where the pixel intersecting area is either 0 or 1
+        # in this case there will be no polygon points that are inside the pixel
+
+
+
+    return None
+
 def plot_region(vert_x, vert_y, vert_x_cen, vert_y_cen, eff_rad, valid_in, valid_out,\
-    region_name='orientale', save=False, with_craters=False):
+    region_name='orientale', save=False, with_craters=False, show_rect=False):
     # plots the region of interest
     # showing the annulus with the inner and outer polygons in different colors
 
@@ -63,11 +102,22 @@ def plot_region(vert_x, vert_y, vert_x_cen, vert_y_cen, eff_rad, valid_in, valid
 
     plt.ticklabel_format(style='sci', axis='both', scilimits=(0,0))
 
+    #if with_craters:
+
+    if show_rect:
+        # Plot the rectangles within which the pixel corners are not checked
+        in_rect_x = [-3.35e6, -2.55e6, -2.55e6, -3.35e6, -3.35e6]
+        in_rect_y = [-9.5e5, -9.5e5, -3.3e5, -3.3e5, -9.5e5]
+
+        out_rect_x = [-3.55e6, -2.32e6, -2.32e6, -3.59e6, -3.55e6]
+        out_rect_y = [-1.47e6, -1.47e6, 5e4, 5e4, -1.47e6]
+
+        ax.plot(in_rect_x, in_rect_y, '-', color='b')
+        ax.plot(out_rect_x, out_rect_y, '-', color='b')
+
     ax.minorticks_on()
     ax.tick_params('both', width=1, length=3, which='minor')
     ax.tick_params('both', width=1, length=4.7, which='major')
-
-    #if with_craters:
 
     if save:
         fig.savefig(slopedir + region_name + '.png', dpi=300)
@@ -122,13 +172,11 @@ if __name__ == '__main__':
     valid_in = np.where(rad_vertices < eff_rad)[0]
 
     #plot_region(vertices_x, vertices_y, vertices_x_center, vertices_y_center, eff_rad, valid_in, valid_out,\
-    #region_name='orientale', save=True, with_craters=False)
+    #region_name='orientale', save=True, with_craters=False, show_rect=False)
 
     # define inner and outer polygons
     poly_outer = zip(vertices_x[valid_out], vertices_y[valid_out])
     poly_inner = zip(vertices_x[valid_in], vertices_y[valid_in])
-    #print check_point_polygon(-3.5e6, -0.5e6, poly_outer)
-    #print check_point_polygon(-3.5e6, -0.5e6, poly_inner)
 
     # ----------------  measure and populate pixel area function array  ---------------- # 
     # read in pixel slope info
@@ -139,14 +187,18 @@ if __name__ == '__main__':
     pix_y_cen_arr = slope_arr['pix_y_cen']
 
     pix_centers = zip(pix_x_cen_arr, pix_y_cen_arr)
-
     pix_area_arr = np.zeros(len(pix_centers))
 
-    # this can be optimized a LOT!!
-    # not all pixels have to be checked with both polygons
-    # in fact, most pixels don't need to be checked at all
+    # loop over all pixels
     for i in range(len(pix_centers)):
 
+        # check if pixel center falls "well" inside the inner excluding rectangle
+        if (min(in_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(in_rect_x) - 500) and \
+        (min(in_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(in_rect_y) - 500):
+            pix_area_arr[i] = 0
+            continue
+
+        # in any other case you'll have to define the corners and proceed
         tl_x = pix_centers[i][0] - 5e2
         tr_x = pix_centers[i][0] + 5e2
         bl_x = pix_centers[i][0] - 5e2
@@ -163,27 +215,48 @@ if __name__ == '__main__':
         br = [br_x, br_y]
 
         pixel_corners = [tl, tr, bl, br]  # top and bottom, left and right
-        for corner in pixel_corners:
 
-            out_bool_tl = check_point_polygon(tl[0], tl[1], poly_outer)
+        # if the pixel center is "well" inside the outer excluding rectangle then 
+        # you only need to check the pixel corners with respect to the inner polygon
+        if (min(out_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(out_rect_x) - 500) and \
+        (min(out_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(out_rect_y) - 500):
+            # so its inside the outer rect
+            # check corners with inner polygon
             in_bool_tl = check_point_polygon(tl[0], tl[1], poly_inner)
-
-            out_bool_tr = check_point_polygon(tr[0], tr[1], poly_outer)
-            in_bool_tr = check_point_polygon(tr[0], tr[1], poly_inner)            
-
-            out_bool_bl = check_point_polygon(bl[0], bl[1], poly_outer)
+            in_bool_tr = check_point_polygon(tr[0], tr[1], poly_inner)
             in_bool_bl = check_point_polygon(bl[0], bl[1], poly_inner)
-
-            out_bool_br = check_point_polygon(br[0], br[1], poly_outer)
             in_bool_br = check_point_polygon(br[0], br[1], poly_inner)
 
-            out_bool = out_bool_tl and out_bool_tr and out_bool_bl and out_bool_br
-            in_bool = in_bool_tl and in_bool_tr and in_bool_bl and in_bool_br
+            # all cases are either pixels 
+            # that intersect the edge or the pix in the annulus
+            # the 5 cases are:
+            # Case 1: All vertices True -- TTTT
+            # Case 2: One False -- TTTF
+            # Case 3: two False -- TTFF
+            # Case 4: three False -- TFFF
+            # Case 5: All veritces False -- FFFF
 
-        if not out_bool:
-            pix_area_arr[i] = 0
-        if in_bool:
-            pix_area_arr[i] = 1
+            # Case 1:
+            if in_bool_tl and in_bool_tr and in_bool_bl and in_bool_br:
+                pix_poly = get_pixel_intersect_shape()
+
+                if pix_poly is None:
+                    pix_area_arr[i] = 0
+                    continue
+                else:
+                    continue
+
+        # check corners 
+        out_bool_tl = check_point_polygon(tl[0], tl[1], poly_outer)
+        out_bool_tr = check_point_polygon(tr[0], tr[1], poly_outer)
+        out_bool_bl = check_point_polygon(bl[0], bl[1], poly_outer)
+        out_bool_br = check_point_polygon(br[0], br[1], poly_outer)
+        
+
+        # Case 1: All pixels True (i.e. TTTT)
+        if out_bool_tl and out_bool_tr and out_bool_bl and out_bool_br:
+            if in_bool_tl and in_bool_tr and in_bool_bl and in_bool_br:
+                pix_area_arr[i] = 0
 
         pix_area_arr[i] = pixel_area(x_cen, y_cen, poly)
 
