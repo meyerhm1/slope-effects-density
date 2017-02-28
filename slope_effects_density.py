@@ -1,6 +1,7 @@
 from __future__ import division
 
 import numpy as np
+import Polygon as pg
 
 import os
 import sys
@@ -46,6 +47,17 @@ def check_point_polygon(x, y, poly):
     return inside
 
 def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
+    """ 
+    I'm not developing this function anymore. The problem of finding the 
+    intersection of two polygons, which can be convex or concave, seems
+    to be more complicated than I expected. A generic mathematical solution
+    will take far too long to derive on my own. 
+
+    I'm switching over to using the General Polygon Clipping (GPC) Library. 
+    This was written by ALan Murta at U. Manchester. http://www.cs.man.ac.uk/~toby/gpc/
+    Seems like it took him a couple years to write. I'm not sure what algorithms
+    he uses to find polygon intersection but it appears to do what I want it 
+    to do.
 
     # this function does not check if the supplied bounding polygon is the inner one
     # or the outer one. The preceding code must make sure the correct polygon is given.
@@ -57,6 +69,8 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
     # then those are to be taken into account for finding the intersecting shape
     # again you need to find the two closest points on the bounding polygon 
     # that are closest to an edge
+    """
+
     polygon_inside_idx_x = np.where((polygon_x > pix_x_cen - 500) & (polygon_x < pix_x_cen + 500))[0]
     polygon_inside_idx_y = np.where((polygon_y > pix_y_cen - 500) & (polygon_y < pix_y_cen + 500))[0]
 
@@ -82,6 +96,8 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
                 end_idx = max(polygon_inside_idx)
 
             # loop over all segments
+            seg_count = 0
+            total_segments = len() + 2
             for i in range(int(end_idx) - int(start_idx) + 2):
 
                 if start_idx+i >= len(polygon_x):
@@ -104,14 +120,33 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
                 seg_inter_finish = np.where((x2 >= pix_x_cen - 500) & (x2 <= pix_x_cen + 500) &\
                     (y2 >= pix_y_cen - 500) & (y2 <= pix_y_cen + 500))[0]
 
+                # redundant checks
+                # should never be trigerred if the program logic is correct
+                if (seg_count == 0) and seg_inter_begin.size:
+                    print "Something went wrong with assigning indices to bounding polygon vertices inside pixel. Exiting..."
+                    sys.exit(0)
+                elif (seg_count == 0) and not seg_inter_finish.size:
+                    print "Something went wrong with assigning indices to bounding polygon vertices inside pixel. Exiting..."
+                    sys.exit(0)
+
+                # the beginning of the last segment by default must be part of the intersecting polygon 
+                if seg_count == total_segments - 1:
+                    intersect_poly.append((x1,y1))
+                    seg_count += 1
+
+                    continue
+
+                # start checking which segment ends are inside pixel
                 if seg_inter_begin.size or seg_inter_finish.size:
                     # i.e. the case where one or both of the ends of the segments is inside the pixel
                     # find the point of intersection
 
-                    # if both segment ends are inside then append them both
+                    # if both segment ends are inside then 
+                    # check that the previous 
                     if seg_inter_begin.size and seg_inter_finish.size:
-                        intersect_poly.append((x1,y1))
                         intersect_poly.append((x2,y2))
+                        # check that the previous one did actually a
+                        seg_count += 1
                         continue
 
                     # if only one end is inside then find where the segment intersects the edge
@@ -134,28 +169,42 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
                         # check that the intersection point found actually does lie on the edge and the segment
                         if (x1 <= xi <= x2) and (x3 <= xi <= x4) and (y1 <= yi <= y2) and (y3 <= yi <= y4):
                             intersect_poly.append((xi,yi))
-                            if edge_count > :
+
+                            # the end of the first segment by default must be part of the intersecting polygon 
+                            if seg_count == 0:
+                                intersect_poly.append((x2,y2))
+
+                            edge_inter_count.append()
+                            seg_count += 1
+                            if (in edge_inter_count) and (seg_count == total_segments - 1):
                                 intersect_poly.append((pixel_corners[edge_count][0], pixel_corners[edge_count][1]))
+
                             break
                         else:
                             continue
 
                 else:
                     # move to the next segment
+                    seg_count += 1
                     continue
 
-                return get_area(intersect_poly)
+            return get_area(intersect_poly)
 
-            elif case == 'tttf':
-
+        elif case == 'tttf':
+            # dummy return # to be fixed
+            return None
 
     # check that there are no bounding polygon vertices on the pixel edge
     # this can only occur for the middle 3 cases with non-zero intersecting area
     if polygon_edge_idx.size:
         #ie. there are bounding polygon vertices on the pixel edge
+        # dummy return # to be fixed
+        return None
 
     else:
         # find the two closest points on either side
+        # dummy return # to be fixed
+        return None
 
     else:
         # these are the couple cases where the pixel intersecting area is either 0 or 1
@@ -167,8 +216,52 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
             return 0
 
         elif (case == 'tttf'):
+            # dummy return # to be fixed
+            return None
 
+def return_unzipped_list(poly):
+    """
+    This function can take a polygon object from the Polygon module
+    or it can take a numpy array.
+    In both cases the polygon is a list of coordinate pairs.
+    """
 
+    if type(poly) is pg.cPolygon.Polygon:
+        px, py = zip(*poly[0])
+    elif type(poly) is np.ndarray:
+        px, py = zip(*poly)
+
+    return px, py
+
+def polygon_plot_prep(poly):
+
+    px, py = return_unzipped_list(poly)
+
+    if px[0] != px[-1]:
+        px = np.append(px, px[0])
+        py = np.append(py, py[0])
+
+    return px, py
+
+def plot_polygon_intersection(poly1, poly2):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    px1, py1 = polygon_plot_prep(poly1)
+    px2, py2 = polygon_plot_prep(poly2)
+
+    ax.plot(px1, py1, '-', color='b', lw=2)
+    ax.plot(px2, py2, '-', color='r', lw=2)
+
+    poly_i = poly1 & poly2
+    px_i, py_i = polygon_plot_prep(poly_i)
+
+    ax.plot(px_i, py_i, '-', color='g', lw=3)
+
+    ax.set_xlim()
+
+    return None
 
 def plot_region(vert_x, vert_y, vert_x_cen, vert_y_cen, eff_rad, valid_in, valid_out,\
     region_name='orientale', save=False, with_craters=False, show_rect=False):
