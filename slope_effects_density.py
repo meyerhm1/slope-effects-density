@@ -13,10 +13,10 @@ import matplotlib.pyplot as plt
 if os.name == 'posix':
     home = os.getenv('HOME')  # does not have a trailing slash
     desktop = home + '/Desktop/'
-    slopedir = desktop + '/slope-effects-density/'
+    mdir = desktop + '/m-effects-density/'
 elif os.name == 'nt':
     desktop = 'C:\Users\Heather\Desktop\\'
-    slopedir = desktop + '\\slope-effects-density\\'
+    mdir = desktop + '\\m-effects-density\\'
 
 def check_point_polygon(x, y, poly):
     """
@@ -45,7 +45,10 @@ def check_point_polygon(x, y, poly):
 
     return inside
 
-def get_pixel_intersect_poly(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
+def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
+
+    # this function does not check if the supplied bounding polygon is the inner one
+    # or the outer one. The preceding code must make sure the correct polygon is given.
 
     # find number of bounding polygon points inside pixel
     # if there are none:
@@ -54,35 +57,118 @@ def get_pixel_intersect_poly(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
     # then those are to be taken into account for finding the intersecting shape
     # again you need to find the two closest points on the bounding polygon 
     # that are closest to an edge
-
-    # this function does not check if the supplied bounding polygon is the inner one
-    # or the outer one. The preceding code must make sure the correct polygon is given.
-
     polygon_inside_idx_x = np.where((polygon_x > pix_x_cen - 500) & (polygon_x < pix_x_cen + 500))[0]
     polygon_inside_idx_y = np.where((polygon_y > pix_y_cen - 500) & (polygon_y < pix_y_cen + 500))[0]
 
     polygon_inside_idx = np.intersect1d(polygon_inside_idx_x, polygon_inside_idx_y)
 
+    # define intersecting polygon as empty list
+    intersect_poly = []
+
     if polygon_inside_idx.size:
         # ie. there are bounding polygon vertices inside the pixel
         # this can happen for all cases
 
-    else:
-        # check that there are no bounding polygon vertices on the pixel edge
-        # this can only occur for the middle 3 cases with non-zero intersecting area
-        if polygon_edge_idx.size:
-            #ie. there are bounding polygon vertices on the pixel edge
+        if (case == 'tttt') or (case == 'ffff'):
 
-        else:
-            # find the two closest points on either side
+            if (0 in polygon_inside_idx) or ((len(polygon_x)-1) in polygon_inside_idx):
+                # returning wrong value # will fix this later
+                if case == 'tttt':
+                    return 1
+                elif case == 'ffff':
+                    return 0 
+            elif (max(polygon_inside_idx) - min(polygon_inside_idx)) == len(polygon_inside_idx)-1:
+                start_idx = min(polygon_inside_idx)
+                end_idx = max(polygon_inside_idx)
+
+            # loop over all segments
+            for i in range(int(end_idx) - int(start_idx) + 2):
+
+                if start_idx+i >= len(polygon_x):
+                    # must check that end_idx + 1 does not lead to an index outside the array indices
+                    # it should come back around to 0 if that is the case
+                    x1 = polygon_x[start_idx+i-1 - len(polygon_x)]
+                    y1 = polygon_y[start_idx+i-1 - len(polygon_x)]
+                    x2 = polygon_x[start_idx+i - len(polygon_x)]
+                    y2 = polygon_y[start_idx+i - len(polygon_x)]
+                else:
+                    x1 = polygon_x[start_idx+i-1]
+                    y1 = polygon_y[start_idx+i-1]
+                    x2 = polygon_x[start_idx+i]
+                    y2 = polygon_y[start_idx+i] 
+
+                # find if this segment can intersect any pixel edge
+                seg_inter_begin = np.where((x1 >= pix_x_cen - 500) & (x1 <= pix_x_cen + 500) &\
+                    (y1 > pix_y_cen - 500) & (y1 < pix_y_cen + 500))[0]
+
+                seg_inter_finish = np.where((x2 >= pix_x_cen - 500) & (x2 <= pix_x_cen + 500) &\
+                    (y2 >= pix_y_cen - 500) & (y2 <= pix_y_cen + 500))[0]
+
+                if seg_inter_begin.size or seg_inter_finish.size:
+                    # i.e. the case where one or both of the ends of the segments is inside the pixel
+                    # find the point of intersection
+
+                    # if both segment ends are inside then append them both
+                    if seg_inter_begin.size and seg_inter_finish.size:
+                        intersect_poly.append((x1,y1))
+                        intersect_poly.append((x2,y2))
+                        continue
+
+                    # if only one end is inside then find where the segment intersects the edge
+                    for j in range(4):
+
+                        x3 = pixel_corners[j-1][0]
+                        y3 = pixel_corners[j-1][1]
+                        x4 = pixel_corners[j][0]
+                        y4 = pixel_corners[j][1]
+
+                        m1 = (y2 - y1) / (x2 - x1)
+                        m2 = (y4 - y3) / (x4 - x3)
+
+                        c1 = y1 - m1 * x1
+                        c2 = y3 - m2 * x3
+
+                        xi = (c2 - c1) / (m1 - m2)
+                        yi = (m1*c2 - m2*c1) / (m1 - m2)
+
+                        # check that the intersection point found actually does lie on the edge and the segment
+                        if (x1 <= xi <= x2) and (x3 <= xi <= x4) and (y1 <= yi <= y2) and (y3 <= yi <= y4):
+                            intersect_poly.append((xi,yi))
+                            if edge_count > :
+                                intersect_poly.append((pixel_corners[edge_count][0], pixel_corners[edge_count][1]))
+                            break
+                        else:
+                            continue
+
+                else:
+                    # move to the next segment
+                    continue
+
+                return get_area(intersect_poly)
+
+            elif case == 'tttf':
+
+
+    # check that there are no bounding polygon vertices on the pixel edge
+    # this can only occur for the middle 3 cases with non-zero intersecting area
+    if polygon_edge_idx.size:
+        #ie. there are bounding polygon vertices on the pixel edge
 
     else:
-        # this is the case where the pixel intersecting area is either 0 or 1
+        # find the two closest points on either side
+
+    else:
+        # these are the couple cases where the pixel intersecting area is either 0 or 1
         # in this case there will be no polygon points that are inside the pixel
+        if (case == 'tttt'):
+            return 1
+
+        elif (case == 'ffff'):
+            return 0
+
+        elif (case == 'tttf'):
 
 
-
-    return None
 
 def plot_region(vert_x, vert_y, vert_x_cen, vert_y_cen, eff_rad, valid_in, valid_out,\
     region_name='orientale', save=False, with_craters=False, show_rect=False):
@@ -120,7 +206,7 @@ def plot_region(vert_x, vert_y, vert_x_cen, vert_y_cen, eff_rad, valid_in, valid
     ax.tick_params('both', width=1, length=4.7, which='major')
 
     if save:
-        fig.savefig(slopedir + region_name + '.png', dpi=300)
+        fig.savefig(mdir + region_name + '.png', dpi=300)
     else:
         plt.show()
 
@@ -134,8 +220,8 @@ if __name__ == '__main__':
     print "Starting at --", dt.now()
 
     # read in catalogs
-    vertices_cat = np.genfromtxt(slopedir + 'HF_vertices_m.csv', dtype=None, names=True, delimiter=',')
-    craters_cat = np.genfromtxt(slopedir + 'CRATER_FullHF_m.csv', dtype=None, names=True, delimiter=',')
+    vertices_cat = np.genfromtxt(mdir + 'HF_vertices_m.csv', dtype=None, names=True, delimiter=',')
+    craters_cat = np.genfromtxt(mdir + 'CRATER_FullHF_m.csv', dtype=None, names=True, delimiter=',')
 
     # create arrays for more convenient access
     vertices_x = vertices_cat['x_coord_m']
@@ -179,12 +265,12 @@ if __name__ == '__main__':
     poly_inner = zip(vertices_x[valid_in], vertices_y[valid_in])
 
     # ----------------  measure and populate pixel area function array  ---------------- # 
-    # read in pixel slope info
+    # read in pixel m info
     # this file also gives the x and y centers of pixels
-    slope_arr = np.load(home + '/Documents/plots_codes_for_heather/slope_effects_files/3km_slope_points.npy')
+    m_arr = np.load(home + '/Documents/plots_codes_for_heather/m_effects_files/m_points.npy')
 
-    pix_x_cen_arr = slope_arr['pix_x_cen']
-    pix_y_cen_arr = slope_arr['pix_y_cen']
+    pix_x_cen_arr = m_arr['pix_x_cen']
+    pix_y_cen_arr = m_arr['pix_y_cen']
 
     pix_centers = zip(pix_x_cen_arr, pix_y_cen_arr)
     pix_area_arr = np.zeros(len(pix_centers))
