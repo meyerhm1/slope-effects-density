@@ -2,6 +2,7 @@ from __future__ import division
 
 import numpy as np
 import Polygon as pg
+from Polygon.Shapes import Circle
 
 import os
 import sys
@@ -9,15 +10,16 @@ import time
 import datetime
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
 
 # Checks if os is windows or unix (mac is same as unix)
 if os.name == 'posix':
     home = os.getenv('HOME')  # does not have a trailing slash
     desktop = home + '/Desktop/'
-    mdir = desktop + '/m-effects-density/'
+    slopedir = desktop + '/slope-effects-density/'
 elif os.name == 'nt':
     desktop = 'C:\Users\Heather\Desktop\\'
-    mdir = desktop + '\\m-effects-density\\'
+    slopedir = desktop + '\\slope-effects-density\\'
 
 def check_point_polygon(x, y, poly):
     """
@@ -45,6 +47,85 @@ def check_point_polygon(x, y, poly):
         p1x,p1y = p2x,p2y
 
     return inside
+
+def part_of_old_main():
+    """
+    This is part of the main code that I was writing earlier,
+    which was to be used with the get_pixel_area() function and others.
+    I've kept it here so that I can come back to it should I ever need to.
+    """
+
+    for i in range(len(pix_centers)):
+
+        # check if pixel center falls "well" inside the inner excluding rectangle
+        if (min(in_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(in_rect_x) - 500) and \
+        (min(in_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(in_rect_y) - 500):
+            pix_area_arr[i] = 0
+            continue
+
+        # in any other case you'll have to define the corners and proceed
+        tl_x = pix_centers[i][0] - 5e2
+        tr_x = pix_centers[i][0] + 5e2
+        bl_x = pix_centers[i][0] - 5e2
+        br_x = pix_centers[i][0] + 5e2
+
+        tl_y = pix_centers[i][1] + 5e2
+        tr_y = pix_centers[i][1] + 5e2
+        bl_y = pix_centers[i][1] - 5e2
+        br_y = pix_centers[i][1] - 5e2
+
+        tl = [tl_x, tl_y]
+        tr = [tr_x, tr_y]
+        bl = [bl_x, bl_y]
+        br = [br_x, br_y]
+
+        pixel_corners = [tl, tr, bl, br]  # top and bottom, left and right
+
+        # if the pixel center is "well" inside the outer excluding rectangle then 
+        # you only need to check the pixel corners with respect to the inner polygon
+        if (min(out_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(out_rect_x) - 500) and \
+        (min(out_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(out_rect_y) - 500):
+            # so its inside the outer rect
+            # check corners with inner polygon
+            in_bool_tl = check_point_polygon(tl[0], tl[1], poly_inner)
+            in_bool_tr = check_point_polygon(tr[0], tr[1], poly_inner)
+            in_bool_bl = check_point_polygon(bl[0], bl[1], poly_inner)
+            in_bool_br = check_point_polygon(br[0], br[1], poly_inner)
+
+            # all cases are either pixels 
+            # that intersect the edge or the pix in the annulus
+            # the 5 cases are:
+            # Case 1: All vertices True -- TTTT
+            # Case 2: One False -- TTTF
+            # Case 3: two False -- TTFF
+            # Case 4: three False -- TFFF
+            # Case 5: All veritces False -- FFFF
+
+            # Case 1:
+            if in_bool_tl and in_bool_tr and in_bool_bl and in_bool_br:
+                pix_poly = get_pixel_intersect_shape()
+
+                if pix_poly is None:
+                    pix_area_arr[i] = 0
+                    continue
+                else:
+                    continue
+
+        # check corners 
+        out_bool_tl = check_point_polygon(tl[0], tl[1], poly_outer)
+        out_bool_tr = check_point_polygon(tr[0], tr[1], poly_outer)
+        out_bool_bl = check_point_polygon(bl[0], bl[1], poly_outer)
+        out_bool_br = check_point_polygon(br[0], br[1], poly_outer)
+        
+
+        # Case 1: All pixels True (i.e. TTTT)
+        if out_bool_tl and out_bool_tr and out_bool_bl and out_bool_br:
+            if in_bool_tl and in_bool_tr and in_bool_bl and in_bool_br:
+                pix_area_arr[i] = 0
+
+        pix_area_arr[i] = pixel_area(x_cen, y_cen, poly)
+
+    return None
 
 def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
     """ 
@@ -176,9 +257,8 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
 
                             edge_inter_count.append()
                             seg_count += 1
-                            if (in edge_inter_count) and (seg_count == total_segments - 1):
-                                intersect_poly.append((pixel_corners[edge_count][0], pixel_corners[edge_count][1]))
-
+                            #if (in edge_inter_count) and (seg_count == total_segments - 1):
+                            #    intersect_poly.append((pixel_corners[edge_count][0], pixel_corners[edge_count][1]))
                             break
                         else:
                             continue
@@ -206,18 +286,18 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
         # dummy return # to be fixed
         return None
 
-    else:
-        # these are the couple cases where the pixel intersecting area is either 0 or 1
-        # in this case there will be no polygon points that are inside the pixel
-        if (case == 'tttt'):
-            return 1
+    #else:
+    #    # these are the couple cases where the pixel intersecting area is either 0 or 1
+    #    # in this case there will be no polygon points that are inside the pixel
+    #    if (case == 'tttt'):
+    #        return 1
 
-        elif (case == 'ffff'):
-            return 0
+    #    elif (case == 'ffff'):
+    #        return 0
 
-        elif (case == 'tttf'):
-            # dummy return # to be fixed
-            return None
+    #    elif (case == 'tttf'):
+    #        # dummy return # to be fixed
+    #        return None
 
 def return_unzipped_list(poly):
     """
@@ -237,9 +317,8 @@ def polygon_plot_prep(poly):
 
     px, py = return_unzipped_list(poly)
 
-    if px[0] != px[-1]:
-        px = np.append(px, px[0])
-        py = np.append(py, py[0])
+    px = np.append(px, px[0])
+    py = np.append(py, py[0])
 
     return px, py
 
@@ -255,11 +334,51 @@ def plot_polygon_intersection(poly1, poly2):
     ax.plot(px2, py2, '-', color='r', lw=2)
 
     poly_i = poly1 & poly2
+    print poly_i
     px_i, py_i = polygon_plot_prep(poly_i)
 
-    ax.plot(px_i, py_i, '-', color='g', lw=3)
+    ax.plot(px_i, py_i, '-', color='k', lw=3)
 
-    ax.set_xlim()
+    # shade intersection region
+    poly_i_patch = Polygon(poly_i[0], closed=True, fill=True, color='gray', alpha=0.5)
+    ax.add_patch(poly_i_patch)
+
+    # get bounding boxes to set limits automatically
+    xmin1, xmax1, ymin1, ymax1 = poly1.boundingBox()
+    xmin2, xmax2, ymin2, ymax2 = poly2.boundingBox()
+
+    xmin = min(xmin1, xmin2) - 3
+    xmax = max(xmax1, xmax2) + 3
+    ymin = min(ymin1, ymin2) - 3  #0.1 * min(ymin1, ymin2)
+    ymax = max(ymax1, ymax2) + 3  #0.1 * max(ymax1, ymax2)
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    plt.show()
+
+    return None
+
+def plot_single_polygon(poly):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    px, py = polygon_plot_prep(poly)
+
+    ax.plot(px, py, '-', color='k', lw=2)
+
+    xmin, xmax, ymin, ymax = poly.boundingBox()
+
+    xmin = xmin - 300
+    xmax = xmax + 300
+    ymin = ymin - 300
+    ymax = ymax + 300
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    plt.show()
 
     return None
 
@@ -305,6 +424,23 @@ def plot_region(vert_x, vert_y, vert_x_cen, vert_y_cen, eff_rad, valid_in, valid
 
     return None
 
+def get_rows_columns(pix_x_cen_arr, pix_y_cen_arr):
+
+    orig = pix_x_cen_arr[0]
+    for j in range(1, len(pix_x_cen_arr)):
+        if pix_x_cen_arr[j] == orig:
+            columns = j
+            break
+
+    orig = pix_y_cen_arr[0]
+    rows = 1
+    for j in range(0, len(pix_y_cen_arr)):
+        if pix_y_cen_arr[j] != orig:
+            rows += 1
+            orig = pix_y_cen_arr[j]
+
+    return rows, columns
+
 if __name__ == '__main__':
     
     # Start time
@@ -313,8 +449,8 @@ if __name__ == '__main__':
     print "Starting at --", dt.now()
 
     # read in catalogs
-    vertices_cat = np.genfromtxt(mdir + 'HF_vertices_m.csv', dtype=None, names=True, delimiter=',')
-    craters_cat = np.genfromtxt(mdir + 'CRATER_FullHF_m.csv', dtype=None, names=True, delimiter=',')
+    vertices_cat = np.genfromtxt(slopedir + 'HF_vertices_m.csv', dtype=None, names=True, delimiter=',')
+    craters_cat = np.genfromtxt(slopedir + 'CRATER_FullHF_m.csv', dtype=None, names=True, delimiter=',')
 
     # create arrays for more convenient access
     vertices_x = vertices_cat['x_coord_m']
@@ -357,24 +493,39 @@ if __name__ == '__main__':
     poly_outer = zip(vertices_x[valid_out], vertices_y[valid_out])
     poly_inner = zip(vertices_x[valid_in], vertices_y[valid_in])
 
-    # ----------------  measure and populate pixel area function array  ---------------- # 
-    # read in pixel m info
-    # this file also gives the x and y centers of pixels
-    m_arr = np.load(home + '/Documents/plots_codes_for_heather/m_effects_files/m_points.npy')
+    poly_outer = pg.Polygon(poly_outer)
+    poly_inner = pg.Polygon(poly_inner)
 
-    pix_x_cen_arr = m_arr['pix_x_cen']
-    pix_y_cen_arr = m_arr['pix_y_cen']
+    # ----------------  measure and populate pixel area function array  ---------------- # 
+    # read in pixel slope info
+    # this file also gives the x and y centers of pixels
+    slope_arr = np.load(home + '/Documents/plots_codes_for_heather/slope_effects_files/3km_slope_points.npy')
+
+    pix_x_cen_arr = slope_arr['pix_x_cen']
+    pix_y_cen_arr = slope_arr['pix_y_cen']
+
+    rows, columns = get_rows_columns(pix_x_cen_arr, pix_y_cen_arr)
 
     pix_centers = zip(pix_x_cen_arr, pix_y_cen_arr)
     pix_area_arr = np.zeros(len(pix_centers))
 
+    # define rectangles within which pixels can be skipped
+    inner_rect_x = [-3.35e6, -2.55e6, -2.55e6, -3.35e6, -3.35e6]
+    inner_rect_y = [-9.5e5, -9.5e5, -3.3e5, -3.3e5, -9.5e5]
+
+    outer_rect_x = [-3.55e6, -2.32e6, -2.32e6, -3.59e6, -3.55e6]
+    outer_rect_y = [-1.47e6, -1.47e6, 5e4, 5e4, -1.47e6]
+
     # loop over all pixels
     for i in range(len(pix_centers)):
 
+        if (i % 100000) == 0.0:
+            print "At pixel number:", i, "; time taken upto now:", '{0:.2f}'.format(time.time() - start)/60, "minutes." 
+
         # check if pixel center falls "well" inside the inner excluding rectangle
-        if (min(in_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(in_rect_x) - 500) and \
-        (min(in_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(in_rect_y) - 500):
-            pix_area_arr[i] = 0
+        if (min(inner_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(inner_rect_x) - 500) and \
+        (min(inner_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(inner_rect_y) - 500):
+            pix_area_arr[i] = 0.0
             continue
 
         # in any other case you'll have to define the corners and proceed
@@ -393,52 +544,90 @@ if __name__ == '__main__':
         bl = [bl_x, bl_y]
         br = [br_x, br_y]
 
-        pixel_corners = [tl, tr, bl, br]  # top and bottom, left and right
+        pixel_corners = [tl, tr, br, bl]  # top and bottom, left and right
 
-        # if the pixel center is "well" inside the outer excluding rectangle then 
-        # you only need to check the pixel corners with respect to the inner polygon
-        if (min(out_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(out_rect_x) - 500) and \
-        (min(out_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(out_rect_y) - 500):
-            # so its inside the outer rect
-            # check corners with inner polygon
-            in_bool_tl = check_point_polygon(tl[0], tl[1], poly_inner)
-            in_bool_tr = check_point_polygon(tr[0], tr[1], poly_inner)
-            in_bool_bl = check_point_polygon(bl[0], bl[1], poly_inner)
-            in_bool_br = check_point_polygon(br[0], br[1], poly_inner)
+        pixel_corners = pg.Polygon(pixel_corners)
 
-            # all cases are either pixels 
-            # that intersect the edge or the pix in the annulus
-            # the 5 cases are:
-            # Case 1: All vertices True -- TTTT
-            # Case 2: One False -- TTTF
-            # Case 3: two False -- TTFF
-            # Case 4: three False -- TFFF
-            # Case 5: All veritces False -- FFFF
+        # find pixel intersection with outer polygon if it is outside the outer rectangle
+        # find pixel intersection with inner polygon if it is inside the outer rectangle 
+        # if the pixel intersects the outer rectangle then the area by default is 1
 
-            # Case 1:
-            if in_bool_tl and in_bool_tr and in_bool_bl and in_bool_br:
-                pix_poly = get_pixel_intersect_shape()
+        # check if it is inside the outer rectangle 
+        #if (min(outer_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(outer_rect_x) - 500) and \
+        #(min(outer_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(outer_rect_y) - 500):
+        #    # so now you know that it is inside the outer rectangle and outside the inner rectangle 
+        #    # find intersection with inner polygon
 
-                if pix_poly is None:
-                    pix_area_arr[i] = 0
-                    continue
-                else:
-                    continue
+        #    pix_area_arr[i] = (pixel_corners & poly_inner).area() / 1e6
 
-        # check corners 
-        out_bool_tl = check_point_polygon(tl[0], tl[1], poly_outer)
-        out_bool_tr = check_point_polygon(tr[0], tr[1], poly_outer)
-        out_bool_bl = check_point_polygon(bl[0], bl[1], poly_outer)
-        out_bool_br = check_point_polygon(br[0], br[1], poly_outer)
-        
+        # check if the pixel is completely inside both polygons
+        if ((pixel_corners & poly_inner).area() == 1e6) and ((pixel_corners & poly_outer).area() == 1e6):
+            # if it is completely inside the inner polygon then it is not part of the
+            # annulus of interest
+            pix_area_arr[i] = 0.0
+            continue
 
-        # Case 1: All pixels True (i.e. TTTT)
-        if out_bool_tl and out_bool_tr and out_bool_bl and out_bool_br:
-            if in_bool_tl and in_bool_tr and in_bool_bl and in_bool_br:
-                pix_area_arr[i] = 0
+        # check if the pixel is completely outside both polygons
+        if ((pixel_corners & poly_inner).area() == 0.0) and ((pixel_corners & poly_outer).area() == 0.0):
+            pix_area_arr[i] = 0.0
+            continue
 
-        pix_area_arr[i] = pixel_area(x_cen, y_cen, poly)
+        # check if the pixel is completely outside the inner polygon but completely inside the outer polygon
+        if ((pixel_corners & poly_inner).area() == 0.0) and ((pixel_corners & poly_outer).area() == 1e6):
+            # if it is outside the inner polygon but inside the outer one
+            pix_area_arr[i] = 1.0
+            continue
+
+        # check if the pixel is completely inside the outer polygon but intersects the inner polygon
+        if ((pixel_corners & poly_inner).area() < 1e6) and ((pixel_corners & poly_inner).area() != 0.0) and\
+         ((pixel_corners & poly_outer).area() == 1e6):
+            pix_area_arr[i] = (pixel_corners & poly_inner).area() / 1e6
+            continue
+
+        # check if the pixel is completely outside the inner polygon but intersects the outer polygon
+        if ((pixel_corners & poly_outer).area() < 1e6) and ((pixel_corners & poly_outer).area() != 0.0) and\
+         ((pixel_corners & poly_inner).area() == 0.0):
+            pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6
+            continue
+
+        # check to see if it is outside the outer rectangle
+        #if (min(outer_rect_x) - 500 > pix_x_cen_arr[i]) or (pix_x_cen_arr[i] > max(outer_rect_x) + 500) or \
+        #(min(outer_rect_y) - 500 > pix_y_cen_arr[i]) or (pix_y_cen_arr[i] > max(outer_rect_y) + 500):
+        #    # so now you know that it is outside the outer rectangle and outside the inner rectangle 
+        #    # find intersection with outer polygon
+
+        #    pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6
+
+        #else:
+        #    # this is the case only if the pixel is "on" the outer rectangle
+        #    pix_area_arr[i] = 1.0
+
+    np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/pix_area_fraction.npy', pix_area_arr)
+
+    #plt.imshow(pix_area_arr.reshape(rows, columns), cmap='bone')
+    #plt.show()
+
+    # loop over all craters
+    # for each crater get its bounding box and 
+    # loop over all pixels in that bounding box
+    # find intersecting area for each pixel and keep a running sum
+    crater_pix_area = np.zeros(len(pix_centers))
+
+    for i in range(len(craters_x)):
+
+        current_crater_x_cen = craters_x[i]
+        current_crater_y_cen = craters_y[i]
+
+        current_crater_rad = craters_diam[i] / 2
+
+        crater_poly = Circle(radius=current_crater_rad, center=(current_crater_x_cen,current_crater_y_cen), points=128)
+
+        crater_poly.boundingBox()
+
+
+
+    np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/crater_pix_frac.npy', pix_area_arr)
 
     # total run time
-    print "Total time taken --", time.time() - start, "seconds."
+    print "Total time taken --", (time.time() - start)/60, "minutes."
     sys.exit(0)
