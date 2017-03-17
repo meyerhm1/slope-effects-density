@@ -441,6 +441,226 @@ def get_rows_columns(pix_x_cen_arr, pix_y_cen_arr):
 
     return rows, columns
 
+def closest_pixel_indices(xp, yp, X, Y):
+
+    x_dist_arr = np.abs(X-xp)
+    y_dist_arr = np.abs(Y-yp)
+    idx_arr = np.where((x_dist_arr == np.min(x_dist_arr)) & (y_dist_arr == np.min(y_dist_arr)))
+
+    row_idx, col_idx = int(idx_arr[0]), int(idx_arr[1])
+
+    return row_idx, col_idx
+
+def get_pixels_in_bbox(bbox, pix_x_cen_arr, pix_y_cen_arr, mode='run'):
+
+    # get limits from the bounding box
+    xmin = bbox[0]
+    xmax = bbox[1]
+    ymin = bbox[2]
+    ymax = bbox[3]
+
+    # turn the limits into search area for pixels
+    # i.e. be conservative and search an additional 500 units on each side
+    # the _s is for search
+    xmin_s = xmin - 500
+    xmax_s = xmax + 500
+    ymin_s = ymin - 500
+    ymax_s = ymax + 500
+
+    # now look for pixels within the search area
+    # all you need to do is to find the pixel indices at the four corners 
+    # of the bounding box and you can easily populate the rest of the array.
+    pix_bbox_x = []
+    pix_bbox_y = []
+
+    # first, create a coordinate grid
+    x1d_short = np.arange(np.min(pix_x_cen_arr), np.max(pix_x_cen_arr)+1000.0, 1000.0)
+    y1d_short = np.arange(np.min(pix_y_cen_arr), np.max(pix_y_cen_arr)+1000.0, 1000.0)
+
+    X, Y = np.meshgrid(x1d_short, y1d_short)
+
+    # second, find the pixel coords (and their indices) that
+    # are closest to hte search corners
+    len_x1d_arr = len(x1d_short)
+    len_y1d_arr = len(y1d_short)
+    
+    bl_row_idx, bl_col_idx = closest_pixel_indices(xmin_s, ymin_s, X, Y)
+    tr_row_idx, tr_col_idx = closest_pixel_indices(xmax_s, ymax_s, X, Y)
+    tl_row_idx, tl_col_idx = closest_pixel_indices(xmin_s, ymax_s, X, Y)
+    # the row and col indices in teh above lines are indices that will give you
+    # the x and y values of the pixel center that is closest to the search corner
+    # e.g. X[bl_row_idx, bl_col_idx] and Y[bl_row_idx, bl_col_idx] are the x and y
+    # coords of the pixel closest to the bottom left corner of hte search area
+
+    bl_xy_1d_idx = np.where((pix_x_cen_arr == X[bl_row_idx, bl_col_idx]) & (pix_y_cen_arr == Y[bl_row_idx, bl_col_idx]))[0]
+    tr_xy_1d_idx = np.where((pix_x_cen_arr == X[tr_row_idx, tr_col_idx]) & (pix_y_cen_arr == Y[tr_row_idx, tr_col_idx]))[0]
+    tl_xy_1d_idx = np.where((pix_x_cen_arr == X[tl_row_idx, tl_col_idx]) & (pix_y_cen_arr == Y[tl_row_idx, tl_col_idx]))[0]
+
+    # uncomment the following lines to check
+    # if the 1d array index assignment worked
+    if mode == 'test':
+        print '\n'
+        print X[bl_row_idx, bl_col_idx], Y[bl_row_idx, bl_col_idx], pix_x_cen_arr[bl_xy_1d_idx], pix_y_cen_arr[bl_xy_1d_idx]
+        print X[tr_row_idx, tr_col_idx], Y[tr_row_idx, tr_col_idx], pix_x_cen_arr[tr_xy_1d_idx], pix_y_cen_arr[tr_xy_1d_idx]
+        print X[tl_row_idx, tl_col_idx], Y[tl_row_idx, tl_col_idx], pix_x_cen_arr[tl_xy_1d_idx], pix_y_cen_arr[tl_xy_1d_idx]
+
+    # lastly, populate the pixel and corresponding index array
+    # first populate the x and y arrays in bbox
+    x_bbox_min = X[bl_row_idx, bl_col_idx]
+    x_bbox_max = X[tr_row_idx, tr_col_idx]
+    y_bbox_min = Y[bl_row_idx, bl_col_idx]
+    y_bbox_max = Y[tr_row_idx, tr_col_idx]
+    if mode == 'test':
+        print "xmin and xmax values in search area:", x_bbox_min, x_bbox_max
+        print "ymin and ymax values in search area:", y_bbox_min, y_bbox_max
+
+    pix_bbox_x_short = np.arange(x_bbox_min, x_bbox_max+1000.0, 1000.0)
+    pix_bbox_y_short = np.arange(y_bbox_min, y_bbox_max+1000.0, 1000.0)
+    pix_bbox_x = pix_bbox_x_short
+    pix_bbox_y = pix_bbox_y_short
+
+    for u in range(len(pix_bbox_y_short) - 1):
+        pix_bbox_x = np.append(pix_bbox_x, pix_bbox_x_short)
+
+    for v in range(len(pix_bbox_x_short) - 1):
+        pix_bbox_y = np.vstack((pix_bbox_y, pix_bbox_y_short))
+
+    pix_bbox_y = pix_bbox_y.T.flatten()
+    pix_bbox_y = pix_bbox_y[::-1]
+    # I'm reversing the y array because the original pix_y_cen_arr is also reversed
+    # i.e. it goes from max to min 
+    if mode == 'test':
+        print len(pix_bbox_x), len(pix_bbox_y)  # should be equal lengths
+
+    # populate pixel index array
+    pixel_indices = []
+
+    rows, columns = get_rows_columns(pix_x_cen_arr, pix_y_cen_arr)
+    rows_in_bbox, columns_in_bbox = get_rows_columns(pix_bbox_x, pix_bbox_y)
+    # this will (almost?) always be square
+    # the bounding box for hte circle will always be square 
+    # but because I add 500 to the search area, that might 
+    # cause the returned shape to be rectangular
+
+    current_start = int(tl_xy_1d_idx)
+    current_row_indices = np.arange(int(tl_xy_1d_idx), int(current_start + columns_in_bbox), 1)
+    row_count = 0
+    while 1:
+        if row_count == rows_in_bbox:
+            break
+
+        for w in range(len(current_row_indices)):
+            pixel_indices.append(current_row_indices[w])
+        
+        row_count += 1
+        current_start += columns
+        current_row_indices = np.arange(int(current_start), int(current_start + columns_in_bbox), 1)
+
+    pixel_indices = np.asarray(pixel_indices)
+
+    return pix_bbox_x, pix_bbox_y, pixel_indices
+
+def crater_test(pix_x_cen_arr, pix_y_cen_arr):
+
+    # define sample craters
+    c1 = Circle(radius=2.5e5, center=(-3.4e6,0), points=128)
+    c2 = Circle(radius=3.5e5, center=(-3.5e6,-0.1e6), points=128)
+    c3 = Circle(radius=1e5, center=(-3.3e6,0), points=128)
+    c4 = Circle(radius=2e5, center=(-2e6,-1.5e6), points=128)
+    c5 = Circle(radius=1e5, center=(-2.2e6,-1.4e6), points=128)
+
+    # plot all craters
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    c1x, c1y = polygon_plot_prep(c1)
+    c2x, c2y = polygon_plot_prep(c2)
+    c3x, c3y = polygon_plot_prep(c3)
+    c4x, c4y = polygon_plot_prep(c4)
+    c5x, c5y = polygon_plot_prep(c5)
+
+    # do the crater calc
+    craters_x = np.array([c1x, c2x, c3x, c4x, c5x])
+    craters_y = np.array([c1y, c2y, c3y, c4y, c5y])
+    all_craters = [c1,c2,c3,c4,c5]
+
+    pix_crater_area = np.zeros(len(pix_x_cen_arr))
+
+    for i in range(len(craters_x)):
+
+        current_crater_x_cen = craters_x[i]
+        current_crater_y_cen = craters_y[i]
+
+        crater_poly = all_craters[i]
+
+        pix_bbox_x, pix_bbox_y, pixel_indices =\
+         get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='test')
+
+        # first check that the lengths of indices array and 
+        # returned x and y array are equal and then
+        # check if the x and y elements given by pixel indices
+        # are indeed the elements in pix_bbox_x and pix_bbox_y
+        print "Returned x, y, and index arrays are:"
+        print pix_bbox_x
+        print pix_bbox_y
+        print pixel_indices
+
+        if len(pix_bbox_x) == len(pix_bbox_y) == len(pixel_indices):
+            print "Equal length. Now checking for equality of pixel coord values that are obtained via two different ways."
+        else:
+            print "Lengths:", len(pix_bbox_x), len(pix_bbox_y), len(pixel_indices)
+            print "Returned arrays are not of equal length. Exiting."
+            sys.exit(0)
+        print np.array_equal(pix_bbox_x, pix_x_cen_arr[pixel_indices])
+        print np.array_equal(pix_bbox_y, pix_y_cen_arr[pixel_indices])
+
+        for j in range(len(pix_bbox_x)):
+
+            current_pix_x_cen = pix_bbox_x[j]
+            current_pix_y_cen = pix_bbox_y[j]
+
+            # define a polygon using pixel corners in exactly the same way as done for the pixel fraction case
+            tl_x = current_pix_x_cen - 5e2
+            tr_x = current_pix_x_cen + 5e2
+            bl_x = current_pix_x_cen - 5e2
+            br_x = current_pix_x_cen + 5e2
+
+            tl_y = current_pix_y_cen + 5e2
+            tr_y = current_pix_y_cen + 5e2
+            bl_y = current_pix_y_cen - 5e2
+            br_y = current_pix_y_cen - 5e2
+
+            tl = [tl_x, tl_y]
+            tr = [tr_x, tr_y]
+            bl = [bl_x, bl_y]
+            br = [br_x, br_y]
+
+            pixel_corners = [tl, tr, br, bl]  # top and bottom, left and right going clockwise
+
+            pixel_corners = pg.Polygon(pixel_corners)
+
+            # find the area of intersection between the pixel and crater
+            inter_area = (pixel_corners & crater_poly).area()
+
+            # find pixel index using pixel center to append to the correct array element
+            pix_index = pixel_indices[j]
+            pix_crater_area[pix_index] += inter_area
+
+    pix_crater_area /= 1e6
+
+    print np.where(pix_crater_area != 0)
+    rows, columns = get_rows_columns(pix_x_cen_arr, pix_y_cen_arr)
+    im = ax.imshow(pix_crater_area.reshape(rows, columns), cmap='bone')
+    plt.colorbar(im, ax=ax)
+
+    plt.show()
+
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+    return None
+
 if __name__ == '__main__':
     
     # Start time
@@ -496,7 +716,7 @@ if __name__ == '__main__':
     poly_outer = pg.Polygon(poly_outer)
     poly_inner = pg.Polygon(poly_inner)
 
-    # ----------------  measure and populate pixel area function array  ---------------- # 
+    # ----------------  measure and populate pixel area fraction array  ---------------- # 
     # read in pixel slope info
     # this file also gives the x and y centers of pixels
     slope_arr = np.load(home + '/Documents/plots_codes_for_heather/slope_effects_files/3km_slope_points.npy')
@@ -507,7 +727,7 @@ if __name__ == '__main__':
     rows, columns = get_rows_columns(pix_x_cen_arr, pix_y_cen_arr)
 
     pix_centers = zip(pix_x_cen_arr, pix_y_cen_arr)
-    pix_area_arr = np.zeros(len(pix_centers))
+    pix_area_arr = np.zeros(len(pix_x_cen_arr))
 
     # define rectangles within which pixels can be skipped
     inner_rect_x = [-3.35e6, -2.55e6, -2.55e6, -3.35e6, -3.35e6]
@@ -515,12 +735,15 @@ if __name__ == '__main__':
 
     outer_rect_x = [-3.55e6, -2.32e6, -2.32e6, -3.59e6, -3.55e6]
     outer_rect_y = [-1.47e6, -1.47e6, 5e4, 5e4, -1.47e6]
-
+    
     # loop over all pixels
     for i in range(len(pix_centers)):
 
         if (i % 100000) == 0.0:
-            print "At pixel number:", i, "; time taken upto now:", '{0:.2f}'.format(time.time() - start)/60, "minutes." 
+            print '\r',
+            print "At pixel number:",'{0:.2e}'.format(i),\
+            "; time taken upto now:",'{0:.2f}'.format((time.time() - start)/60),"minutes.",
+            sys.stdout.flush()
 
         # check if pixel center falls "well" inside the inner excluding rectangle
         if (min(inner_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(inner_rect_x) - 500) and \
@@ -544,7 +767,7 @@ if __name__ == '__main__':
         bl = [bl_x, bl_y]
         br = [br_x, br_y]
 
-        pixel_corners = [tl, tr, br, bl]  # top and bottom, left and right
+        pixel_corners = [tl, tr, br, bl]  # top and bottom, left and right going clockwise
 
         pixel_corners = pg.Polygon(pixel_corners)
 
@@ -603,17 +826,31 @@ if __name__ == '__main__':
         #    pix_area_arr[i] = 1.0
 
     np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/pix_area_fraction.npy', pix_area_arr)
+    print "Pixel fractional area computation done and saved."
+    print "Moving to craters now.", '\n'
 
-    #plt.imshow(pix_area_arr.reshape(rows, columns), cmap='bone')
-    #plt.show()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    im = ax.imshow(pix_area_arr.reshape(rows, columns), cmap='bone')
+    plt.colorbar(im, ax=ax)
 
+    fig.savefig(slopedir + 'pix_area_frac.png', dpi=300, bbox_inches='tight')
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+    # ----------------  measure and populate crater pixel fraction array  ---------------- # 
     # loop over all craters
     # for each crater get its bounding box and 
     # loop over all pixels in that bounding box
     # find intersecting area for each pixel and keep a running sum
-    crater_pix_area = np.zeros(len(pix_centers))
+    pix_crater_area = np.zeros(len(pix_x_cen_arr))
 
     for i in range(len(craters_x)):
+
+        print '\r',
+        print 'Analyzing crater', i+1,
+        sys.stdout.flush()
 
         current_crater_x_cen = craters_x[i]
         current_crater_y_cen = craters_y[i]
@@ -621,12 +858,59 @@ if __name__ == '__main__':
         current_crater_rad = craters_diam[i] / 2
 
         crater_poly = Circle(radius=current_crater_rad, center=(current_crater_x_cen,current_crater_y_cen), points=128)
+        # the crater circle is approximated using a polygon of 128 points
 
-        crater_poly.boundingBox()
+        pix_bbox_x, pix_bbox_y, pixel_indices =\
+         get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='run')
 
+        for j in range(len(pix_bbox_x)):
 
+            current_pix_x_cen = pix_bbox_x[j]
+            current_pix_y_cen = pix_bbox_y[j]
 
-    np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/crater_pix_frac.npy', pix_area_arr)
+            # define a polygon using pixel corners in exactly the same way as done for the pixel fraction case
+            tl_x = current_pix_x_cen - 5e2
+            tr_x = current_pix_x_cen + 5e2
+            bl_x = current_pix_x_cen - 5e2
+            br_x = current_pix_x_cen + 5e2
+
+            tl_y = current_pix_y_cen + 5e2
+            tr_y = current_pix_y_cen + 5e2
+            bl_y = current_pix_y_cen - 5e2
+            br_y = current_pix_y_cen - 5e2
+
+            tl = [tl_x, tl_y]
+            tr = [tr_x, tr_y]
+            bl = [bl_x, bl_y]
+            br = [br_x, br_y]
+
+            pixel_corners = [tl, tr, br, bl]  # top and bottom, left and right going clockwise
+
+            pixel_corners = pg.Polygon(pixel_corners)
+
+            # find the area of intersection between the pixel and crater
+            inter_area = (pixel_corners & crater_poly).area()
+
+            # find pixel index using pixel center to append to the correct array element
+            pix_index = pixel_indices[j]
+            pix_crater_area[pix_index] += inter_area
+
+    pix_crater_area /= 1e6
+
+    np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/crater_pix_frac.npy', pix_crater_area)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    im = ax.imshow(pix_crater_area.reshape(rows, columns), cmap='bone')
+    plt.colorbar(im, ax=ax)
+
+    fig.savefig(slopedir + 'pix_crater_frac.png', dpi=300, bbox_inches='tight')
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+    # plot pixel crater fraction with slope overplotted
+    #fig = plt.figure()
 
     # total run time
     print "Total time taken --", (time.time() - start)/60, "minutes."
