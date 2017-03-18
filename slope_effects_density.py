@@ -735,7 +735,7 @@ if __name__ == '__main__':
 
     outer_rect_x = [-3.55e6, -2.32e6, -2.32e6, -3.59e6, -3.55e6]
     outer_rect_y = [-1.47e6, -1.47e6, 5e4, 5e4, -1.47e6]
-    
+    """
     # loop over all pixels
     for i in range(len(pix_centers)):
 
@@ -826,7 +826,7 @@ if __name__ == '__main__':
         #    pix_area_arr[i] = 1.0
 
     np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/pix_area_fraction.npy', pix_area_arr)
-    print "Pixel fractional area computation done and saved."
+    print "\n","Pixel fractional area computation done and saved."
     print "Moving to craters now.", '\n'
 
     fig = plt.figure()
@@ -838,7 +838,7 @@ if __name__ == '__main__':
     plt.clf()
     plt.cla()
     plt.close()
-
+    """
     # ----------------  measure and populate crater pixel fraction array  ---------------- # 
     # loop over all craters
     # for each crater get its bounding box and 
@@ -849,7 +849,7 @@ if __name__ == '__main__':
     for i in range(len(craters_x)):
 
         print '\r',
-        print 'Analyzing crater', i+1,
+        print 'Analyzing crater', i+1, "of", len(craters_x),
         sys.stdout.flush()
 
         current_crater_x_cen = craters_x[i]
@@ -913,5 +913,6 @@ if __name__ == '__main__':
     #fig = plt.figure()
 
     # total run time
+    print '\n'
     print "Total time taken --", (time.time() - start)/60, "minutes."
     sys.exit(0)
