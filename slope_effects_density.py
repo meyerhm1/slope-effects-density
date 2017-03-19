@@ -723,6 +723,7 @@ if __name__ == '__main__':
 
     pix_x_cen_arr = slope_arr['pix_x_cen']
     pix_y_cen_arr = slope_arr['pix_y_cen']
+    slope = slope_arr['slope_val']
 
     rows, columns = get_rows_columns(pix_x_cen_arr, pix_y_cen_arr)
 
@@ -735,7 +736,7 @@ if __name__ == '__main__':
 
     outer_rect_x = [-3.55e6, -2.32e6, -2.32e6, -3.59e6, -3.55e6]
     outer_rect_y = [-1.47e6, -1.47e6, 5e4, 5e4, -1.47e6]
-    """
+    
     # loop over all pixels
     for i in range(len(pix_centers)):
 
@@ -825,7 +826,7 @@ if __name__ == '__main__':
         #    # this is the case only if the pixel is "on" the outer rectangle
         #    pix_area_arr[i] = 1.0
 
-    np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/pix_area_fraction.npy', pix_area_arr)
+    np.save(home + '/Documents/plots_codes_for_heather/slope_effects_files/pix_area_frac.npy', pix_area_arr)
     print "\n","Pixel fractional area computation done and saved."
     print "Moving to craters now.", '\n'
 
@@ -838,7 +839,7 @@ if __name__ == '__main__':
     plt.clf()
     plt.cla()
     plt.close()
-    """
+
     # ----------------  measure and populate crater pixel fraction array  ---------------- # 
     # loop over all craters
     # for each crater get its bounding box and 
@@ -897,7 +898,7 @@ if __name__ == '__main__':
 
     pix_crater_area /= 1e6
 
-    np.save('/Users/bhavinjoshi/Documents/plots_codes_for_heather/slope_effects_files/crater_pix_frac.npy', pix_crater_area)
+    np.save(home + '/Documents/plots_codes_for_heather/slope_effects_files/crater_pix_frac.npy', pix_crater_area)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -909,8 +910,30 @@ if __name__ == '__main__':
     plt.cla()
     plt.close()
 
+    # ----------------  loop over all pixels and measure crater density  ---------------- # 
+    # read in pix area and crater area files 
+    pix_frac = np.load(home + '/Documents/plots_codes_for_heather/slope_effects_files/pix_area_frac.npy')
+    crater_frac = np.load(home + '/Documents/plots_codes_for_heather/slope_effects_files/crater_pix_frac.npy')
+
+    density = np.zeros(len(pix_centers))
+    for i in range(len(pix_centers)):
+
+        if pix_frac[i] != 0.0:
+            density[i] = crater_frac[i] / pix_frac[i]
+        elif pix_frac[i] == 0.0:
+            density[i] = np.nan
+
+    np.save(home + '/Documents/plots_codes_for_heather/slope_effects_files/density.npy', density.reshape(rows,columns))
+    np.save(home + '/Documents/plots_codes_for_heather/slope_effects_files/slope_val.npy', slope.reshape(rows,columns))
+
     # plot pixel crater fraction with slope overplotted
-    #fig = plt.figure()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    ax.plot(np.log10(density), slope, 'o', color='k', markersize=1)
+
+    fig.savefig(slopedir + 'density_slope.png', dpi=300, bbox_inches='tight')
+    plt.show()
 
     # total run time
     print '\n'
