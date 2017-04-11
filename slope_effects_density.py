@@ -19,7 +19,8 @@ if os.name == 'posix':
     slopedir = desktop + '/slope-effects-density/'
 elif os.name == 'nt':
     desktop = 'C:\Users\Heather\Desktop\\'
-    slopedir = desktop + '\\slope-effects-density\\'
+    #slopedir = desktop + '\\slope-effects-density\\'
+    slopedir = 'C:\Users\Heather\Dropbox\Slope Effects\python\master-4-11-2017\\'
 
 def check_point_polygon(x, y, poly):
     """
@@ -678,7 +679,7 @@ if __name__ == '__main__':
 
     craters_x = craters_cat['x_coord_m']
     craters_y = craters_cat['y_coord_m']
-    craters_diam = craters_cat['Diameter_m']
+    craters_diam = craters_cat['diam_m']
 
     # delete offending points
     off_x_idx1 = np.argmin(abs(vertices_x - -2.41165e6))
@@ -719,7 +720,7 @@ if __name__ == '__main__':
     # ----------------  measure and populate pixel area fraction array  ---------------- # 
     # read in pixel slope info
     # this file also gives the x and y centers of pixels
-    slope_arr = np.load(home + '/Documents/plots_codes_for_heather/slope_effects_files/3km_slope_points.npy')
+    slope_arr = np.load('3km_slope_points.npy')
 
     pix_x_cen_arr = slope_arr['pix_x_cen']
     pix_y_cen_arr = slope_arr['pix_y_cen']
