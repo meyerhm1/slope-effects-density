@@ -496,7 +496,7 @@ def get_pixels_in_bbox(bbox, pix_x_cen_arr, pix_y_cen_arr, mode='run'):
     tr_xy_1d_idx = np.where((pix_x_cen_arr == X[tr_row_idx, tr_col_idx]) & (pix_y_cen_arr == Y[tr_row_idx, tr_col_idx]))[0]
     tl_xy_1d_idx = np.where((pix_x_cen_arr == X[tl_row_idx, tl_col_idx]) & (pix_y_cen_arr == Y[tl_row_idx, tl_col_idx]))[0]
 
-    # uncomment the following lines to check
+    # will run the following lines in test mode to check
     # if the 1d array index assignment worked
     if mode == 'test':
         print '\n'
@@ -529,6 +529,8 @@ def get_pixels_in_bbox(bbox, pix_x_cen_arr, pix_y_cen_arr, mode='run'):
     pix_bbox_y = pix_bbox_y[::-1]
     # I'm reversing the y array because the original pix_y_cen_arr is also reversed
     # i.e. it goes from max to min 
+    # because the origin of the coordinates orginally given in the slope file
+    # is to the top left. i.e. the coordinates are mostly in hte fourth quadrant
     if mode == 'test':
         print len(pix_bbox_x), len(pix_bbox_y)  # should be equal lengths
 
@@ -743,7 +745,7 @@ if __name__ == '__main__':
         if (i % 100000) == 0.0:
             print '\r',
             print "At pixel number:",'{0:.2e}'.format(i),\
-            "; time taken upto now:",'{0:.2f}'.format((time.time() - start)/60),"minutes.",
+            "; time taken up to now:",'{0:.2f}'.format((time.time() - start)/60),"minutes.",
             sys.stdout.flush()
 
         # check if pixel center falls "well" inside the inner excluding rectangle
@@ -771,18 +773,6 @@ if __name__ == '__main__':
         pixel_corners = [tl, tr, br, bl]  # top and bottom, left and right going clockwise
 
         pixel_corners = pg.Polygon(pixel_corners)
-
-        # find pixel intersection with outer polygon if it is outside the outer rectangle
-        # find pixel intersection with inner polygon if it is inside the outer rectangle 
-        # if the pixel intersects the outer rectangle then the area by default is 1
-
-        # check if it is inside the outer rectangle 
-        #if (min(outer_rect_x) + 500 < pix_x_cen_arr[i]) and (pix_x_cen_arr[i] < max(outer_rect_x) - 500) and \
-        #(min(outer_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(outer_rect_y) - 500):
-        #    # so now you know that it is inside the outer rectangle and outside the inner rectangle 
-        #    # find intersection with inner polygon
-
-        #    pix_area_arr[i] = (pixel_corners & poly_inner).area() / 1e6
 
         # check if the pixel is completely inside both polygons
         if ((pixel_corners & poly_inner).area() == 1e6) and ((pixel_corners & poly_outer).area() == 1e6):
@@ -813,18 +803,6 @@ if __name__ == '__main__':
          ((pixel_corners & poly_inner).area() == 0.0):
             pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6
             continue
-
-        # check to see if it is outside the outer rectangle
-        #if (min(outer_rect_x) - 500 > pix_x_cen_arr[i]) or (pix_x_cen_arr[i] > max(outer_rect_x) + 500) or \
-        #(min(outer_rect_y) - 500 > pix_y_cen_arr[i]) or (pix_y_cen_arr[i] > max(outer_rect_y) + 500):
-        #    # so now you know that it is outside the outer rectangle and outside the inner rectangle 
-        #    # find intersection with outer polygon
-
-        #    pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6
-
-        #else:
-        #    # this is the case only if the pixel is "on" the outer rectangle
-        #    pix_area_arr[i] = 1.0
 
     np.save(home + '/Documents/plots_codes_for_heather/slope_effects_files/pix_area_frac.npy', pix_area_arr)
     print "\n","Pixel fractional area computation done and saved."
@@ -889,14 +867,14 @@ if __name__ == '__main__':
 
             pixel_corners = pg.Polygon(pixel_corners)
 
-            # find the area of intersection between the pixel and crater
+            # find the area of intersection between the pixel and crater and 
+            # the fraction of orginal crater that area amounts to
             inter_area = (pixel_corners & crater_poly).area()
+            inter_area_crater_frac = inter_area / crater_poly.area()
 
             # find pixel index using pixel center to append to the correct array element
             pix_index = pixel_indices[j]
-            pix_crater_area[pix_index] += inter_area
-
-    pix_crater_area /= 1e6
+            pix_crater_area[pix_index] += inter_area_crater_frac
 
     np.save(home + '/Documents/plots_codes_for_heather/slope_effects_files/crater_pix_frac.npy', pix_crater_area)
 
