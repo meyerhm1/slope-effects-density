@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division #future calls most recent version of a library or commands from python
 
 import numpy as np
 import Polygon as pg
@@ -12,7 +12,7 @@ import datetime
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
-# Checks if os is windows or unix (mac is same as unix)
+# Checks if os is windows or unix
 if os.name == 'posix':
     home = os.getenv('HOME')  # does not have a trailing slash
     desktop = home + '/Desktop/'
@@ -683,7 +683,10 @@ if __name__ == '__main__':
     craters_y = craters_cat['y_coord_m']
     craters_diam = craters_cat['diam_m']
 
-    # delete offending points
+    # delete offending points -- those that cause the polygon to cross itself
+    #argmin takes an array of difference and it gives us the argument that 
+    #gave the minimum difference (so finding the closest point in an array).
+    #Here, we store the x and y positions of the closest points and then delete them.
     off_x_idx1 = np.argmin(abs(vertices_x - -2.41165e6))
     off_y_idx1 = np.argmin(abs(vertices_y - 176717))
 
@@ -705,7 +708,10 @@ if __name__ == '__main__':
     rad_vertices = np.sqrt((vertices_x - vertices_x_center)**2 + (vertices_y - vertices_y_center)**2)
     eff_rad = np.min(rad_vertices) + 25e4  # number put in by trial and error
     
-    # define valid indices for vertices inside and outside dividing effective radius
+    # define valid indices for vertices inside and outside dividing effective radius 
+    #i.e. if the position is farther from the center of the study area than the exent 
+    #of the radius of the outer circle, then it's outside and vice versa for the radius 
+    #of the inner circle. np.where gives the array indices that satisfy a given condition.
     valid_out = np.where(rad_vertices > eff_rad)[0]
     valid_in = np.where(rad_vertices < eff_rad)[0]
 
@@ -730,17 +736,24 @@ if __name__ == '__main__':
 
     rows, columns = get_rows_columns(pix_x_cen_arr, pix_y_cen_arr)
 
+    # zip combines the given arrays.
+    # In this case, the pixel centers were taken from the slope raster, 
+    # which was converted to a numpy binary file to minimize computation time. 
     pix_centers = zip(pix_x_cen_arr, pix_y_cen_arr)
     pix_area_arr = np.zeros(len(pix_x_cen_arr))
 
-    # define rectangles within which pixels can be skipped
+    # define rectangles within which pixels can be skipped, i.e. well within 
+    # the inner rectangle or well beyond the outer rectangle. You need 5 points 
+    # to define a rectangle in order to make sure the polygon closes. However, 
+    # you only really need the min/max extent of the area shapefile.
     inner_rect_x = [-3.35e6, -2.55e6, -2.55e6, -3.35e6, -3.35e6]
     inner_rect_y = [-9.5e5, -9.5e5, -3.3e5, -3.3e5, -9.5e5]
 
     outer_rect_x = [-3.55e6, -2.32e6, -2.32e6, -3.59e6, -3.55e6]
     outer_rect_y = [-1.47e6, -1.47e6, 5e4, 5e4, -1.47e6]
     
-    # loop over all pixels
+    # loop over all pixels, range just designates the iterable -- in this case, 
+    # the pix_centers array.
     for i in range(len(pix_centers)):
 
         if (i % 100000) == 0.0:
@@ -754,8 +767,8 @@ if __name__ == '__main__':
         (min(inner_rect_y) + 500 < pix_y_cen_arr[i]) and (pix_y_cen_arr[i] < max(inner_rect_y) - 500):
             pix_area_arr[i] = 0.0
             continue
-
-        # in any other case you'll have to define the corners and proceed
+        # pix_area_arr defines the starting array for the fractional area of pixels within the study area.
+        # in any other case you'll have to define the corners and proceed.
         tl_x = pix_centers[i][0] - 5e2
         tr_x = pix_centers[i][0] + 5e2
         bl_x = pix_centers[i][0] - 5e2
@@ -773,36 +786,37 @@ if __name__ == '__main__':
 
         pixel_corners = [tl, tr, br, bl]  # top and bottom, left and right going clockwise
 
-        pixel_corners = pg.Polygon(pixel_corners)
+        pixel_corners = pg.Polygon(pixel_corners) # creates a polygon for each pixel as it iterates
 
-        # check if the pixel is completely inside both polygons
+        # The Polygon module is capable of finding the area of intersection between two polygons, which is what we've implemented below.
+        # case 1: check if the pixel is completely inside both polygons
         if ((pixel_corners & poly_inner).area() == 1e6) and ((pixel_corners & poly_outer).area() == 1e6):
             # if it is completely inside the inner polygon then it is not part of the
-            # annulus of interest
+            # annulus of interest, so it gets assigned zero.
             pix_area_arr[i] = 0.0
             continue
 
-        # check if the pixel is completely outside both polygons
+        # case 2: check if the pixel is completely outside both polygons, also assigned zero.
         if ((pixel_corners & poly_inner).area() == 0.0) and ((pixel_corners & poly_outer).area() == 0.0):
             pix_area_arr[i] = 0.0
             continue
 
-        # check if the pixel is completely outside the inner polygon but completely inside the outer polygon
+        # case 3: check if the pixel is completely outside the inner polygon but completely inside the outer polygon
         if ((pixel_corners & poly_inner).area() == 0.0) and ((pixel_corners & poly_outer).area() == 1e6):
-            # if it is outside the inner polygon but inside the outer one
+            # if it is outside the inner polygon but inside the outer one (i.e. completely within the annulus)
             pix_area_arr[i] = 1.0
             continue
 
-        # check if the pixel is completely inside the outer polygon but intersects the inner polygon
+        # case 4: check if the pixel is completely inside the outer polygon but intersects the inner polygon
         if ((pixel_corners & poly_inner).area() < 1e6) and ((pixel_corners & poly_inner).area() != 0.0) and\
          ((pixel_corners & poly_outer).area() == 1e6):
-            pix_area_arr[i] = (pixel_corners & poly_inner).area() / 1e6
+            pix_area_arr[i] = (pixel_corners & poly_inner).area() / 1e6 # stores the fraction of the pixel area that is within the annulus
             continue
 
-        # check if the pixel is completely outside the inner polygon but intersects the outer polygon
+        # case 5: check if the pixel is completely outside the inner polygon but intersects the outer polygon
         if ((pixel_corners & poly_outer).area() < 1e6) and ((pixel_corners & poly_outer).area() != 0.0) and\
          ((pixel_corners & poly_inner).area() == 0.0):
-            pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6
+            pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6 # stores the fraction of the pixel area that is within the annulus
             continue
 
     np.save(slopedir + 'pix_area_frac.npy', pix_area_arr)
@@ -838,7 +852,7 @@ if __name__ == '__main__':
         current_crater_rad = craters_diam[i] / 2
 
         crater_poly = Circle(radius=current_crater_rad, center=(current_crater_x_cen,current_crater_y_cen), points=128)
-        # the crater circle is approximated using a polygon of 128 points
+        # the crater circle is approximated using a polygon of 128 vertices
 
         pix_bbox_x, pix_bbox_y, pixel_indices =\
          get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='run')
@@ -871,11 +885,11 @@ if __name__ == '__main__':
             # find the area of intersection between the pixel and crater and
             # the fraction of original crater that area amounts to
             inter_area = (pixel_corners & crater_poly).area()
-            inter_area_crater_frac = inter_area / crater_poly.area()
+            inter_area_crater_frac = inter_area / crater_poly.area() # store the fraction of the crater occupying that pixel
 
             # find pixel index using pixel center to append to the correct array element
             pix_index = pixel_indices[j]
-            pix_crater_area[pix_index] += inter_area_crater_frac
+            pix_crater_area[pix_index] += inter_area_crater_frac #for each pixel, keep a running sum of the fractions of craters within it
 
     pix_crater_area /= 1e6
 
