@@ -664,7 +664,11 @@ def crater_test(pix_x_cen_arr, pix_y_cen_arr):
 
     return None
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
+
+	# add code to give user choice to run boolean or fuzzy logic
+	# run_mode = sys.argv.......
+	# if run_mode == 'bool': 
     
     # Start time
     start = time.time()
@@ -891,7 +895,7 @@ if __name__ == '__main__':
             pix_index = pixel_indices[j]
             pix_crater_area[pix_index] += inter_area_crater_frac #for each pixel, keep a running sum of the fractions of craters within it
 
-    pix_crater_area /= 1e6
+    # pix_crater_area /= 1e6 -- normalized to 1 sq km if needed (comment out if using fractions)
 
     np.save(slopedir + 'crater_pix_frac.npy', pix_crater_area)
 
