@@ -649,6 +649,7 @@ def crater_test(pix_x_cen_arr, pix_y_cen_arr):
             pix_index = pixel_indices[j]
             pix_crater_area[pix_index] += inter_area
 
+    # pix_crater_area /= 1e6 -- normalized to 1 sq km if needed (comment out if using fractions)
 
     print np.where(pix_crater_area != 0)
     rows, columns = get_rows_columns(pix_x_cen_arr, pix_y_cen_arr)
