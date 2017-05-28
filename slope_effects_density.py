@@ -1,4 +1,19 @@
-from __future__ import division #future calls most recent version of a library or commands from python
+"""
+This code will take arrays of veritces (i.e. pixel coords of vertices) defining the study area
+and crater info (i.e. crater diam and crater center coords) and figure out the fraction of each 
+pixel inside the study area and the summed fraction of crater area (i.e. summing over each crater 
+that intersects a given pixel and giving a cumulative sum ) within each pixel.
+"""
+
+# To do list: 
+# 0 - Give boolean option to user.
+# 1 - Convert and save csv
+# 2 - Convert and save density numpy into ASCII Raster (or other raster type)
+# 3 - Convert clipped ASCII Raster back to numpy
+# 4 - Create 3D histogram from new clipped numpy
+# Probably easiest to put numpy2raster and raster2numpy in a separate utilities code and call here as needed.
+
+from __future__ import division  # __future__ calls most recent version of a library or commands from python
 
 import numpy as np
 import Polygon as pg
@@ -18,9 +33,9 @@ if os.name == 'posix':
     desktop = home + '/Desktop/'
     slopedir = desktop + '/slope-effects-density/'
 elif os.name == 'nt':
-    desktop = 'C:\Users\Heather\Desktop\\'
+    #desktop = 'C:\Users\Heather\Desktop\\'
     #slopedir = desktop + '\\slope-effects-density\\'
-    slopedir = 'C:\Users\Heather\Dropbox\Slope Effects\python\\'
+    slopedir = 'E:\slope-effects-density\\'
 
 def check_point_polygon(x, y, poly):
     """
@@ -141,8 +156,9 @@ def get_pixel_area(polygon_x, polygon_y, pix_x_cen, pix_y_cen, case):
     he uses to find polygon intersection but it appears to do what I want it 
     to do.
 
-    # this function does not check if the supplied bounding polygon is the inner one
-    # or the outer one. The preceding code must make sure the correct polygon is given.
+    # With respect to the problem at hand this function does not check if the 
+    # supplied bounding polygon is the inner one or the outer one. 
+    # The preceding code must make sure the correct polygon is given.
 
     # find number of bounding polygon points inside pixel
     # if there are none:
@@ -823,7 +839,14 @@ if __name__ == '__main__':
             pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6 # stores the fraction of the pixel area that is within the annulus
             continue
 
+
+    # This array will give pixel area in physical units
+    # Uncomment the line for saving physical area arr if the area is not unity 
+    #area_single_pix = 1.0  # in square km
+    #pix_area_arr_phys = pix_area_arr * area_single_pix
+
     np.save(slopedir + 'pix_area_frac.npy', pix_area_arr)
+    #np.save(slopedir + 'pix_area_km.npy', pix_area_arr_phys)
     print "\n","Pixel fractional area computation done and saved."
     print "Moving to craters now.", '\n'
 
@@ -918,12 +941,25 @@ if __name__ == '__main__':
     for i in range(len(pix_centers)):
 
         if pix_frac[i] != 0.0:
-            density[i] = crater_frac[i] / pix_frac[i]
+            density[i] = crater_frac[i] / pix_frac[i] 
+            # Because pixel area is currently 1 sq. km, we do not need to multiply 
+            # pix_frac by the area of a single pixel. 
+            # Density = # of craters per sq. km.
+            # If you ever have pixels that are not 1 sq. km in area then you should use
+            # density[i] = crater_frac[i] / pix_area_arr_phys[i] (pix_area_arr_phys calculation currently commented out)
+            # with area_single_pix (see code above where it saves the pixel area frac) 
+            # set to the area of a pixel in the physical units you need.
         elif pix_frac[i] == 0.0:
             density[i] = np.nan
 
     np.save(slopedir + 'density.npy', density.reshape(rows,columns))
     np.save(slopedir + 'slope_val.npy', slope.reshape(rows,columns))
+
+    # save density csv for Prasun
+
+
+    # save density ASCII Raster for Heather
+    
 
     # plot pixel crater fraction with slope overplotted
     fig = plt.figure()
