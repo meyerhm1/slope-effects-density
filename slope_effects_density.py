@@ -6,11 +6,12 @@ that intersects a given pixel and giving a cumulative sum ) within each pixel.
 """
 
 # To do list: 
-# 0 - Give boolean option to user.
+# 0 - Give boolean option to user
 # 1 - Convert and save csv
 # 2 - Convert and save density numpy into ASCII Raster (or other raster type)
 # 3 - Convert clipped ASCII Raster back to numpy
 # 4 - Create 3D histogram from new clipped numpy
+# 5 - Write function to read in crater vertices
 # Probably easiest to put numpy2raster and raster2numpy in a separate utilities code and call here as needed.
 
 from __future__ import division  # __future__ calls most recent version of a library or commands from python
