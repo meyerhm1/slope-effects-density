@@ -698,7 +698,7 @@ if __name__ == '__main__':
 
     craters_x = craters_cat['x_coord_m']
     craters_y = craters_cat['y_coord_m']
-    craters_diam = craters_cat['diam_m']
+    craters_diam = craters_cat['Diameter_m']
 
     # delete offending points -- those that cause the polygon to cross itself
     #argmin takes an array of difference and it gives us the argument that 
