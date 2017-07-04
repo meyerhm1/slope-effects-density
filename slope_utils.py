@@ -8,7 +8,7 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
-def numpy_to_asciiraster(npy_array_path, dir_for_raster='same', final_shape, pix_x, pix_y):
+def numpy_to_asciiraster(npy_array_path, final_shape, pix_x, pix_y, dir_for_raster='same'):
 
     # read in numpy array
     npy_array = np.load(npy_array_path)
@@ -17,12 +17,15 @@ def numpy_to_asciiraster(npy_array_path, dir_for_raster='same', final_shape, pix
     if dir_for_raster == 'same':
         dir_for_raster = os.path.dirname(npy_array_path) + '/'
 
-    npy_filename = os.path.splitext(os.path.basename(npy_array_path))
+    npy_filename = os.path.splitext(os.path.basename(npy_array_path))[0]
     raster_file = open(dir_for_raster + '/' + npy_filename + '.asc', 'wa')
 
     # determine rows and columns and reshape numpy 1D array to 2D image
     rows = final_shape[0]
     cols = final_shape[1]
+
+    # reshape numpy array to be a 2D array for the rest of the code to work correctly
+    npy_array = npy_array.reshape((rows, cols))
 
     # get pixel values
     pix_x_ll = pix_x[0]
@@ -30,7 +33,7 @@ def numpy_to_asciiraster(npy_array_path, dir_for_raster='same', final_shape, pix
     cellsize = 1000  # pixel step in meters
 
     # write array to file
-    raster_file.write('NCOLS ' + str(columns) + '\n')
+    raster_file.write('NCOLS ' + str(cols) + '\n')
     raster_file.write('NROWS ' + str(rows) + '\n')
 
     raster_file.write('XLLCENTER ' + str(pix_x_ll) + '\n')
@@ -41,7 +44,7 @@ def numpy_to_asciiraster(npy_array_path, dir_for_raster='same', final_shape, pix
 
     # loop over all rows and write row data to raster file
     for i in range(rows):
-        for j in range(columns):
+        for j in range(cols):
         
             raster_file.write(str(npy_array[i,j]) + ' ')
         raster_file.write('\n')
@@ -51,7 +54,7 @@ def numpy_to_asciiraster(npy_array_path, dir_for_raster='same', final_shape, pix
 
     return None
 
-def raster_to_numpy(raster_path, dir_for_array='same', total_pixels):
+def raster_to_numpy(raster_path, total_pixels, dir_for_array='same'):
 
     # read in raster file
     # opened only in read mode to stop from accidentally messing with it

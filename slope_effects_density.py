@@ -7,12 +7,12 @@ that intersects a given pixel and giving a cumulative sum ) within each pixel.
 
 # To do list: 
 # 0 - Give boolean option to user
-# 1 - Convert and save csv
-# 2 - Convert and save density numpy into ASCII Raster (or other raster type)
-# 3 - Convert clipped ASCII Raster back to numpy
+# DONE# 1 - Convert and save csv
+# DONE # 2 - Convert and save density numpy into ASCII Raster (or other raster type)
+# DONE # 3 - Convert clipped ASCII Raster back to numpy
 # 4 - Create 3D histogram from new clipped numpy
-# 5 - Write function to read in crater vertices
-# Probably easiest to put numpy2raster and raster2numpy in a separate utilities code and call here as needed.
+# DONE # 5 - Write function to read in crater vertices
+# DONE # Probably easiest to put numpy2raster and raster2numpy in a separate utilities code and call here as needed.
 
 from __future__ import division  # __future__ calls most recent version of a library or commands from python
 
@@ -28,11 +28,14 @@ import datetime
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
+import slope_utils as su
+
 # Checks if os is windows or unix
 if os.name == 'posix':
     home = os.getenv('HOME')  # does not have a trailing slash
     desktop = home + '/Desktop/'
     slopedir = desktop + '/slope-effects-density/'
+    slope_extdir = home + '/Documents/plots_codes_for_heather/slope_effects_files/'
 elif os.name == 'nt':
     #desktop = 'C:\Users\Heather\Desktop\\'
     #slopedir = desktop + '\\slope-effects-density\\'
@@ -677,6 +680,15 @@ def crater_test(pix_x_cen_arr, pix_y_cen_arr):
 
     return None
 
+def get_crater_circle_poly(x_cen, y_cen, dia):
+
+    rad = dia / 2
+
+    circ_poly = Circle(radius=rad, center=(current_crater_x_cen,current_crater_y_cen), points=128)
+    # the crater circle is approximated using a polygon of 128 vertices
+
+    return circ_poly
+
 if __name__ == '__main__': 
 
 	# add code to give user choice to run boolean or fuzzy logic
@@ -689,16 +701,17 @@ if __name__ == '__main__':
     print "Starting at --", dt.now()
 
     # read in catalogs
-    vertices_cat = np.genfromtxt(slopedir + 'HF_vertices_m.csv', dtype=None, names=True, delimiter=',')
-    craters_cat = np.genfromtxt(slopedir + 'CRATER_FullHF_m.csv', dtype=None, names=True, delimiter=',')
+    vertices_cat = np.genfromtxt(slope_extdir + 'HF_vertices_m.csv', dtype=None, names=True, delimiter=',')
+
+    # Old code using crater centers
+    #craters_cat = np.genfromtxt(slope_extdir + 'CRATER_FullHF_m.csv', dtype=None, names=True, delimiter=',')
+    #craters_x = craters_cat['x_coord_m']
+    #craters_y = craters_cat['y_coord_m']
+    #craters_diam = craters_cat['Diameter_m']
 
     # create arrays for more convenient access
     vertices_x = vertices_cat['x_coord_m']
     vertices_y = vertices_cat['y_coord_m']
-
-    craters_x = craters_cat['x_coord_m']
-    craters_y = craters_cat['y_coord_m']
-    craters_diam = craters_cat['Diameter_m']
 
     # delete offending points -- those that cause the polygon to cross itself
     #argmin takes an array of difference and it gives us the argument that 
@@ -745,7 +758,7 @@ if __name__ == '__main__':
     # ----------------  measure and populate pixel area fraction array  ---------------- # 
     # read in pixel slope info
     # this file also gives the x and y centers of pixels
-    slope_arr = np.load(slopedir + '3km_slope_points.npy')
+    slope_arr = np.load(slope_extdir + '3km_slope_points.npy')
 
     pix_x_cen_arr = slope_arr['pix_x_cen']
     pix_y_cen_arr = slope_arr['pix_y_cen']
@@ -827,23 +840,33 @@ if __name__ == '__main__':
         # case 4: check if the pixel is completely inside the outer polygon but intersects the inner polygon
         if ((pixel_corners & poly_inner).area() < 1e6) and ((pixel_corners & poly_inner).area() != 0.0) and\
          ((pixel_corners & poly_outer).area() == 1e6):
-            pix_area_arr[i] = (pixel_corners & poly_inner).area() / 1e6 # stores the fraction of the pixel area that is within the annulus
+            pix_area_arr[i] = 1.0 - (pixel_corners & poly_inner).area() / 1e6  # stores the fraction of the pixel area that is within the annulus
             continue
 
         # case 5: check if the pixel is completely outside the inner polygon but intersects the outer polygon
         if ((pixel_corners & poly_outer).area() < 1e6) and ((pixel_corners & poly_outer).area() != 0.0) and\
          ((pixel_corners & poly_inner).area() == 0.0):
-            pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6 # stores the fraction of the pixel area that is within the annulus
+            pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6  # stores the fraction of the pixel area that is within the annulus
             continue
-
 
     # This array will give pixel area in physical units
     # Uncomment the line for saving physical area arr if the area is not unity 
     #area_single_pix = 1.0  # in square km
     #pix_area_arr_phys = pix_area_arr * area_single_pix
 
-    np.save(slopedir + 'pix_area_frac.npy', pix_area_arr)
-    #np.save(slopedir + 'pix_area_km.npy', pix_area_arr_phys)
+    # save as numpy binary
+    np.save(slope_extdir + 'pix_area_fraction.npy', pix_area_arr)
+    #np.save(slope_extdir + 'pix_area_km.npy', pix_area_arr_phys)
+
+    # save as csv
+    data = np.array(zip(pix_area_arr), dtype=[('pixel_area_frac', float)])
+    # the string in the dtype here should match the array variable
+    np.savetxt(slope_extdir + 'pixel_area_fraction.csv', data, fmt=['%.4f'], delimiter=',', \
+        header='pixel_area_fraction')
+
+    # save as ascii raster
+    su.numpy_to_asciiraster(slope_extdir + 'pix_area_fraction.npy', (rows, columns), pix_x_cen_arr, pix_y_cen_arr)
+
     print "\n","Pixel fractional area computation done and saved."
     print "Moving to craters now.", '\n'
 
@@ -852,31 +875,39 @@ if __name__ == '__main__':
     im = ax.imshow(pix_area_arr.reshape(rows, columns), cmap='bone')
     plt.colorbar(im, ax=ax)
 
-    fig.savefig(slopedir + 'pix_area_frac.png', dpi=300, bbox_inches='tight')
+    fig.savefig(slope_extdir + 'pix_area_frac.png', dpi=300, bbox_inches='tight')
     plt.clf()
     plt.cla()
     plt.close()
 
     # ----------------  measure and populate crater pixel fraction array  ---------------- # 
+    # read crater vertices file
+    crater_vert = np.genfromtxt(slope_extdir + 'CRATER_FullHF_Vertices_coords.txt', \
+        dtype=None, names=True, delimiter=',')
+    crater_ids = np.unique(crater_vert['ORIG_FID'])
+
     # loop over all craters
     # for each crater get its bounding box and 
     # loop over all pixels in that bounding box
     # find intersecting area for each pixel and keep a running sum
     pix_crater_area = np.zeros(len(pix_x_cen_arr))
 
-    for i in range(len(craters_x)):
+    for i in range(len(crater_ids)):
 
         print '\r',
-        print 'Analyzing crater', i+1, "of", len(craters_x),
+        print 'Analyzing crater', i+1, "of", len(crater_ids),
         sys.stdout.flush()
 
-        current_crater_x_cen = craters_x[i]
-        current_crater_y_cen = craters_y[i]
+        # this line was originally used to create a circular polygon for each crater
+        # based on its x,y center and diameter
+        #get_crater_circle_poly(craters_x[i], craters_y[i], craters_diam[i])
 
-        current_crater_rad = craters_diam[i] / 2
+        # Now, using the explicit x and y crater vertices to create a polygon
+        current_crater_vert_idx = np.where(crater_vert['ORIG_FID'] == crater_ids[i])
+        current_x_vert = crater_vert['x_coord_m'][current_crater_vert_idx]
+        current_y_vert = crater_vert['y_coord_m'][current_crater_vert_idx]
 
-        crater_poly = Circle(radius=current_crater_rad, center=(current_crater_x_cen,current_crater_y_cen), points=128)
-        # the crater circle is approximated using a polygon of 128 vertices
+        crater_poly = pg.Polygon(zip(current_x_vert, current_y_vert))
 
         pix_bbox_x, pix_bbox_y, pixel_indices =\
          get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='run')
@@ -917,22 +948,36 @@ if __name__ == '__main__':
 
     # pix_crater_area /= 1e6 -- normalized to 1 sq km if needed (comment out if using fractions)
 
-    np.save(slopedir + 'crater_pix_frac.npy', pix_crater_area)
+    # save as numpy binary array
+    np.save(slope_extdir + 'crater_area_frac_in_pix.npy', pix_crater_area)
+
+    # save as csv
+    data = np.array(zip(pix_crater_area), dtype=[('pix_crater_area', float)])
+    # the string in the dtype here should match the array variable
+    np.savetxt(slope_extdir + 'crater_area_frac_in_pix.csv', data, fmt=['%.4f'], delimiter=',', \
+        header='crater_area_fraction_in_pixel')
+
+    # save as ascii raster
+    su.numpy_to_asciiraster(slope_extdir + 'crater_area_frac_in_pix.npy', (rows, columns), pix_x_cen_arr, pix_y_cen_arr)
+
+    print "\n","Crater fractional area in each pixel computation done and saved."
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
     im = ax.imshow(pix_crater_area.reshape(rows, columns), cmap='bone')
     plt.colorbar(im, ax=ax)
 
-    fig.savefig(slopedir + 'pix_crater_frac.png', dpi=300, bbox_inches='tight')
+    fig.savefig(slope_extdir + 'pix_crater_frac.png', dpi=300, bbox_inches='tight')
     plt.clf()
     plt.cla()
     plt.close()
 
+    sys.exit(0)
+
     # ----------------  loop over all pixels and measure crater density  ---------------- # 
     # read in pix area and crater area files 
-    pix_frac = np.load(slopedir + 'pix_area_frac.npy')
-    crater_frac = np.load(slopedir + 'crater_pix_frac.npy')
+    pix_frac = np.load(slope_extdir + 'pix_area_fraction.npy')
+    crater_frac = np.load(slope_extdir + 'crater_area_frac_in_pix.npy')
 
     density = np.zeros(len(pix_centers))
     for i in range(len(pix_centers)):
@@ -949,14 +994,8 @@ if __name__ == '__main__':
         elif pix_frac[i] == 0.0:
             density[i] = np.nan
 
-    np.save(slopedir + 'density.npy', density.reshape(rows,columns))
-    np.save(slopedir + 'slope_val.npy', slope.reshape(rows,columns))
-
-    # save density csv for Prasun
-
-
-    # save density ASCII Raster for Heather
-    
+    np.save(slope_extdir + 'density.npy', density.reshape(rows,columns))
+    np.save(slope_extdir + 'slope_val.npy', slope.reshape(rows,columns))
 
     # plot pixel crater fraction with slope overplotted
     fig = plt.figure()
@@ -964,7 +1003,7 @@ if __name__ == '__main__':
 
     ax.plot(np.log10(density), slope, 'o', color='k', markersize=1)
 
-    fig.savefig(slopedir + 'density_slope.png', dpi=300, bbox_inches='tight')
+    fig.savefig(slope_extdir + 'density_slope.png', dpi=300, bbox_inches='tight')
     plt.show()
 
     # total run time
