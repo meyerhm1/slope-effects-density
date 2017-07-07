@@ -784,6 +784,7 @@ if __name__ == '__main__':
     
     # loop over all pixels, range just designates the iterable -- in this case, 
     # the pix_centers array.
+    """
     for i in range(len(pix_centers)):
 
         if (i % 100000) == 0.0:
@@ -879,6 +880,7 @@ if __name__ == '__main__':
     plt.clf()
     plt.cla()
     plt.close()
+    """
 
     # ----------------  measure and populate crater pixel fraction array  ---------------- # 
     # read crater vertices file
@@ -910,7 +912,7 @@ if __name__ == '__main__':
         crater_poly = pg.Polygon(zip(current_x_vert, current_y_vert))
 
         pix_bbox_x, pix_bbox_y, pixel_indices =\
-         get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='run')
+         get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='test')
 
         for j in range(len(pix_bbox_x)):
 
@@ -945,6 +947,10 @@ if __name__ == '__main__':
             # find pixel index using pixel center to append to the correct array element
             pix_index = pixel_indices[j]
             pix_crater_area[pix_index] += inter_area_crater_frac #for each pixel, keep a running sum of the fractions of craters within it
+
+        plt.imshow(pix_crater_area.reshape(rows, columns), cmap='bone')
+        plt.show()
+        if i==4: sys.exit(0)
 
     # pix_crater_area /= 1e6 -- normalized to 1 sq km if needed (comment out if using fractions)
 
