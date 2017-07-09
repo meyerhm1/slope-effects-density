@@ -850,8 +850,13 @@ if __name__ == '__main__':
             pix_area_arr[i] = (pixel_corners & poly_outer).area() / 1e6  # stores the fraction of the pixel area that is within the annulus
             continue
 
+    # write all zeros as -9999.0 which is the NODATA_VALUE (for the ascii raster and numpy array)
+    invalid_idx = np.where(pix_area_arr == 0.0)[0]
+    pix_area_arr[invalid_idx] = -9999.0
+
     # This array will give pixel area in physical units
     # Uncomment the line for saving physical area arr if the area is not unity 
+    # check this part of the code again and make sure that it is okay with the NODATA_VALUE
     #area_single_pix = 1.0  # in square km
     #pix_area_arr_phys = pix_area_arr * area_single_pix
 
@@ -911,8 +916,8 @@ if __name__ == '__main__':
 
         crater_poly = pg.Polygon(zip(current_x_vert, current_y_vert))
 
-        pix_bbox_x, pix_bbox_y, pixel_indices =\
-         get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='test')
+        pix_bbox_x, pix_bbox_y, pixel_indices = \
+        get_pixels_in_bbox(crater_poly.boundingBox(), pix_x_cen_arr, pix_y_cen_arr, mode='run')
 
         for j in range(len(pix_bbox_x)):
 
@@ -948,11 +953,18 @@ if __name__ == '__main__':
             pix_index = pixel_indices[j]
             pix_crater_area[pix_index] += inter_area_crater_frac #for each pixel, keep a running sum of the fractions of craters within it
 
-        plt.imshow(pix_crater_area.reshape(rows, columns), cmap='bone')
-        plt.show()
-        if i==4: sys.exit(0)
-
     # pix_crater_area /= 1e6 -- normalized to 1 sq km if needed (comment out if using fractions)
+
+    # write all zeros as -9999.0 which is the NODATA_VALUE (for the ascii raster and numpy array)
+    # For the crater area fraction array, I want to save the pixels outside the study area with the
+    # NODATA_VALUE and those inside the study area but NOT intersecting a crater to 0.0 which should
+    # be the case after the previous for loop is done. So I only need to change the pixels outside
+    # study area to the NODATA_VALUE using the same invalid_idx as before.
+    pix_area_arr = np.load(slope_extdir + 'pix_area_fraction.npy')  
+    invalid_idx = np.where(pix_area_arr == 0.0)[0]
+    # these lines is here just in case you're running the code only for the 
+    # craters and the invalid_idx definition would be commented out otherwise
+    pix_crater_area[invalid_idx] = -9999.0
 
     # save as numpy binary array
     np.save(slope_extdir + 'crater_area_frac_in_pix.npy', pix_crater_area)

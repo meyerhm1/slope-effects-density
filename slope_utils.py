@@ -40,7 +40,7 @@ def numpy_to_asciiraster(npy_array_path, final_shape, pix_x, pix_y, dir_for_rast
     raster_file.write('YLLCENTER ' + str(pix_y_ll) + '\n')
 
     raster_file.write('CELLSIZE ' + str(cellsize) + '\n')
-    raster_file.write('NODATA_VALUE ' + str(-9999) + '\n')
+    raster_file.write('NODATA_VALUE ' + str(-9999.0) + '\n')
 
     # loop over all rows and write row data to raster file
     for i in range(rows):
