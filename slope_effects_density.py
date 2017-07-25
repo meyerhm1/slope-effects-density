@@ -784,7 +784,6 @@ if __name__ == '__main__':
     
     # loop over all pixels, range just designates the iterable -- in this case, 
     # the pix_centers array.
-    """
     for i in range(len(pix_centers)):
 
         if (i % 100000) == 0.0:
@@ -885,7 +884,6 @@ if __name__ == '__main__':
     plt.clf()
     plt.cla()
     plt.close()
-    """
 
     # ----------------  measure and populate crater pixel fraction array  ---------------- # 
     # read crater vertices file
